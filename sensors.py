@@ -97,9 +97,7 @@ def output_csv(data, csvpath):
             writer.writerow(data)
 
 ######Googleスプレッドシートにアップロードする処理######
-def output_spreadsheet(all_values_dict):
-    #APIのURL
-    url = ''
+def output_spreadsheet(all_values_dict, url):
     #APIにデータをPOST
     response = requests.post(url, json=all_values_dict)
     print(response.text)
@@ -123,11 +121,15 @@ if __name__ == '__main__':
 
     #設定ファイルとデバイスリスト読込
     cfg = configparser.ConfigParser()
-    cfg.read('/home/pi/workspaces/sensors/config.ini', encoding='utf-8')
-    df_devicelist = pd.read_csv('/home/pi/workspaces/sensors/DeviceList.csv')
+    cfg.read(os.path.dirname(os.path.abspath(__file__)) + 'config.ini', encoding='utf-8')
+    df_devicelist = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + 'DeviceList.csv')
     #全センサ数とデータ取得成功数
     sensor_num = len(df_devicelist)
     success_num = 0
+
+    #API URL
+    apiurl = cfg['API']['GoogleDriveUrl']
+    print(apiurl)
 
     #ログの初期化
     logname = f"/sensorlog_{str(masterdate.strftime('%y%m%d'))}.log"
@@ -163,7 +165,7 @@ if __name__ == '__main__':
             success_num+=1
 
     ######Googleスプレッドシートにアップロードする処理######
-    output_spreadsheet(all_values_dict)
+    output_spreadsheet(all_values_dict, apiurl)
 
     #処理終了をログ出力
     logging.info(f'[masterdate{str(masterdate)} startdate{str(startdate)} enddate{str(datetime.today())} success{str(success_num)}/{str(sensor_num)}]')
