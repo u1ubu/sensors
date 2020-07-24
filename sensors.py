@@ -1,3 +1,5 @@
+import ambient
+import requests
 from bluepy import btle
 from inkbird_ibsth1 import GetIBSTH1Data
 from vcgencmd import GetVcgencmdData
@@ -96,6 +98,21 @@ def output_csv(data, csvpath):
             writer = csv.DictWriter(f, data.keys())
             writer.writerow(data)
 
+###### Ambient へ送信 ######
+def SendToAmbient(data, device):
+    senddata = {'created': data['Date'], 'd1': data['Temperature']}
+    if 'Humidity' in data :
+        senddata['d2'] = data['Humidity']
+    print(f'senddata:{str(senddata)}')
+    am = ambient.Ambient(device.API_URL, device.Token)
+    try:
+        ret = am.send(senddata)
+        print('sent to Ambient (ret = %d)' % ret.status_code)
+        logging.info('sent to Ambient (ret = %d)' % ret.status_code)
+    except requests.exceptions.RequestException as e:
+        print('Ambient.send request failed: ', e)
+        logging.error(f'Ambient.send request failed:{str(e)}')
+
 ######Googleスプレッドシートにアップロードする処理######
 def output_spreadsheet(all_values_dict, url):
     #APIにデータをPOST
@@ -121,15 +138,14 @@ if __name__ == '__main__':
 
     #設定ファイルとデバイスリスト読込
     cfg = configparser.ConfigParser()
-    cfg.read(os.path.dirname(os.path.abspath(__file__)) + 'config.ini', encoding='utf-8')
-    df_devicelist = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + 'DeviceList.csv')
+    cfg.read(os.path.dirname(os.path.abspath(__file__)) + '/config.ini', encoding='utf-8')
+    df_devicelist = pd.read_csv(os.path.dirname(os.path.abspath(__file__)) + '/DeviceList.csv')
     #全センサ数とデータ取得成功数
     sensor_num = len(df_devicelist)
     success_num = 0
 
     #API URL
     apiurl = cfg['API']['GoogleDriveUrl']
-    print(apiurl)
 
     #ログの初期化
     logname = f"/sensorlog_{str(masterdate.strftime('%y%m%d'))}.log"
@@ -161,6 +177,8 @@ if __name__ == '__main__':
 
             #CSV出力
             output_csv(data, cfg['Path']['CSVOutput'])
+            #Ambient
+            SendToAmbient(data, device)
             #成功数プラス
             success_num+=1
 
